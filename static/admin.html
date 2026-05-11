@@ -1,0 +1,1684 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BOLTYN – Admin & Chat</title>
+
+  <!-- CDN: Markdown + Highlight -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <style>
+    :root {
+      --primary: #1e293b;
+      --accent: #4f46e5;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /*  Layout  */
+    .wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 0; border-bottom: 2px solid var(--border); margin-bottom: 20px;
+    }
+    header h1 { font-size: 1.25rem; display: flex; align-items: center; gap: 8px; }
+    header h1 .h1-badge { background: var(--accent); color: #fff; font-size: 0.6rem; padding: 2px 8px; border-radius: 999px; }
+
+    /*  Cards  */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-body { padding: 16px; }
+
+    /*  Tabs  */
+    .tab-bar {
+      display: flex; gap: 4px; align-items: center;
+    }
+    .tab-btn {
+      padding: 6px 16px; border: none; border-radius: 8px;
+      font-size: 0.8rem; font-weight: 500; cursor: pointer;
+      background: transparent; color: var(--text-muted);
+      transition: all .15s;
+    }
+    .tab-btn:hover { background: #e2e8f0; }
+    .tab-btn.active {
+      background: var(--accent); color: #fff;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Settings Tab – scrollable */
+    #tab-settings { padding-top: 16px; }
+    #tab-database { padding-top: 16px; display: none; }
+    #tab-database.active { display: block; }
+
+    /* Chat Tab – full height */
+    #tab-chat { display: none; }
+    #tab-chat.active { display: flex; flex-direction: column; flex: 1; }
+    body.chat-mode .wrap {
+      position: fixed; inset: 0; padding: 16px 16px 0;
+      max-width: 960px; margin: 0 auto;
+      display: flex; flex-direction: column;
+    }
+    body.chat-mode header {
+      flex-shrink: 0;
+    }
+    /* padding-top gleicht #tab-settings padding-top aus */
+    body.chat-mode #tab-chat.active {
+      flex: 1; display: flex; flex-direction: column; min-height: 0;
+      padding-top: 16px;
+    }
+    body.chat-mode #tab-chat.active .card {
+      flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
+    body.chat-mode #chat-msgs {
+      flex: 1; max-height: none; min-height: 0;
+    }
+    body.chat-mode .chat-input {
+      flex-shrink: 0;
+    }
+    body.chat-mode #tab-chat.active .card-header {
+      flex-shrink: 0;
+    }
+
+    /*  Status  */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      text-align: center;
+      padding: 12px 8px;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+    .stat .value { font-size: 1.5rem; font-weight: 700; }
+    .stat .label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .stat.ok .value { color: var(--success); }
+    .stat.warn .value { color: var(--warning); }
+    .stat.err .value { color: var(--danger); }
+
+    /*  Buttons  */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px;
+      border: none; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 500;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 4px 12px; font-size: 0.75rem; }
+
+    /*  Log  */
+    .log-box {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.75rem;
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 160px;
+      overflow-y: auto;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .log-box .time { color: #64748b; }
+    .log-box .ok { color: #4ade80; }
+    .log-box .err { color: #f87171; }
+    .log-box .info { color: #60a5fa; }
+
+    /*  Chat  */
+    #chat-msgs {
+      max-height: 50vh;
+      min-height: 200px;
+      overflow-y: auto;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .row { display: flex; margin: 10px 0; }
+    .row.user { justify-content: flex-end; }
+    .bub {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .row.user .bub {
+      background: var(--accent); color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .row.bot .bub {
+      background: #f1f5f9; color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Typing */
+    .typing .bub { display: flex; gap: 5px; align-items: center; }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #94a3b8; opacity: .6;
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink { 0%,80%,100% { opacity: .2 } 40% { opacity: 1 } }
+    @keyframes modalIn { from { opacity:0; transform:scale(.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+    /* Markdown extras */
+    .bub table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: 0.85rem; }
+    .bub th, .bub td { border: 1px solid var(--border); padding: .3rem .5rem; text-align: left; }
+    .bub pre { background: #0f172a !important; border-radius: 8px; padding: 12px; overflow-x: auto; margin: .5rem 0; }
+    .bub pre code { color: #e2e8f0 !important; font-size: 0.8rem; }
+    .bub :not(pre) > code { background: #e2e8f0; color: var(--text); padding: 1px 5px; border-radius: 4px; font-size: 0.8rem; }
+    .bub p { margin: .4rem 0; }
+    .bub ul, .bub ol { padding-left: 1.5rem; margin: .4rem 0; }
+
+    /* Source chips */
+    .sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .source-chip {
+      font-size: 0.7rem; padding: 2px 8px;
+      background: #e2e8f0; border-radius: 999px;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .source-chip:hover { background: #cbd5e1; }
+
+    /* Copy button */
+    .code-actions { display: flex; justify-content: flex-end; margin: -8px 0 6px; }
+    .copy-btn {
+      font-size: 0.65rem; padding: 2px 8px;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--card); cursor: pointer; color: var(--text-muted);
+    }
+    .copy-btn:hover { background: var(--bg); }
+
+    /*  Input  */
+    .chat-input {
+      display: flex; gap: 8px; padding: 12px;
+      border-top: 1px solid var(--border); background: #f8fafc;
+      position: relative;
+    }
+    .chat-input textarea {
+      flex: 1; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      outline: none; resize: none; font-family: inherit; font-size: 0.875rem;
+    }
+    .chat-input textarea:focus { border-color: var(--accent); }
+    .chat-input.voice-active textarea { padding-left: 32px; }
+    .voice-input-icon {
+      position: absolute; left: 24px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--danger); z-index: 2;
+      font-size: 0.9rem; pointer-events: none;
+      display: none;
+    }
+    .voice-input-icon.visible { display: block; }
+
+    /*  Language select  */
+    .lang-select {
+      font-size: 0.8rem; padding: 6px 8px; border: none; border-radius: 8px;
+      background: transparent; cursor: pointer; outline: none;
+      color: var(--text-muted); font-weight: 500; transition: all .15s;
+    }
+    .lang-select:hover { background: #e2e8f0; }
+    .lang-select:focus { border-color: var(--accent); }
+
+    /*  Responsive  */
+    @media (max-width: 640px) {
+      .wrap { padding: 10px; }
+      .status-grid { grid-template-columns: repeat(2, 1fr); }
+      header h1 { font-size: 1rem; }
+    }
+
+    /*  Upload zone  */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: 10px;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--accent);
+      background: #eef2ff;
+    }
+    .upload-area input { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!--  HEADER + TABS  -->
+  <header>
+    <h1>
+       BOLTYN
+      <span id="status-badge" class="h1-badge" style="vertical-align:middle;margin-left:8px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">
+        <span id="status-text" style="font-weight:500;" data-i18n="status.ready" data-i18n-html>Bereit</span>
+      </span>
+    </h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="chat" onclick="switchTab('chat')" data-i18n="chat" data-i18n-html> Chat</button>
+        <button class="tab-btn" data-tab="database" onclick="switchTab('database')" data-i18n="database" data-i18n-html> Datenbank</button>
+        <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')" data-i18n="settings" data-i18n-html> Einstellungen</button>
+      </div>
+      <select id="lang-select" class="lang-select" onchange="setLang(this.value)" title="Language / Sprache">
+        <option value="de">🇩🇪 DE</option>
+        <option value="en">🇬🇧 EN</option>
+      </select>
+    </div>
+  </header>
+
+  <!--  SETTINGS (ausgeblendet im Chat-Tab)  -->
+  <div id="tab-settings" class="tab-content">
+
+  <!--  STATUS  -->
+  <div class="card">
+    <div class="card-header"><span data-i18n="card.status" data-i18n-html> Status</span></div>
+    <div class="card-body">
+      <div class="status-grid">
+        <div class="stat" id="stat-llm">
+          <div class="value">…</div>
+          <div class="label" data-i18n="stat.llm">LLM (Ollama)</div>
+        </div>
+        <div class="stat" id="stat-model" style="cursor:pointer;" onclick="openModelModal()">
+          <div class="value" id="model-current-name">…</div>
+          <div class="label" data-i18n="stat.model" data-i18n-html> Modell · klick zum Wechseln</div>
+        </div>
+        <div class="stat" id="stat-docs-chunks" style="display:flex;align-items:center;justify-content:center;gap:0;padding:8px;">
+          <div style="flex:1;text-align:center;">
+            <div class="value" id="stat-docs-value">…</div>
+            <div class="label" data-i18n="stat.docs">Dokumente</div>
+          </div>
+          <div style="width:1px;height:40px;background:var(--border);flex-shrink:0;"></div>
+          <div style="flex:1;text-align:center;">
+            <div class="value" id="stat-chunks-value">…</div>
+            <div class="label" data-i18n="stat.chunks">Chunks</div>
+          </div>
+        </div>
+
+        <!-- Modal Overlay -->
+        <div id="model-modal-overlay"
+          style="display:none; position:fixed; inset:0; z-index:9999;
+                 background:rgba(15,23,42,.4); backdrop-filter:blur(4px);
+                 align-items:center; justify-content:center;">
+          <div id="model-modal"
+            style="background:var(--card); border-radius:16px; box-shadow:0 16px 48px rgba(0,0,0,.2);
+                   width:90%; max-width:420px; max-height:80vh; overflow-y:auto;
+                   animation:modalIn .2s ease-out;">
+            <!-- Modal Header -->
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px 0;">
+              <div>
+                <div style="font-weight:700; font-size:1rem;" data-i18n="modal.title"> Modell wählen</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;" data-i18n="modal.subtitle">
+                  Klick auf ein Modell zum Aktivieren
+                </div>
+              </div>
+              <button id="model-modal-close"
+                style="width:28px; height:28px; border:none; border-radius:6px; background:transparent;
+                       cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;
+                       color:var(--text-muted); transition:color .15s;"
+                title="Close">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <!-- Modal Body: Model List -->
+            <div id="model-modal-list" style="padding:12px 16px;">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="btn-restart" class="btn" style="background:var(--danger);color:#fff;" data-i18n="btn.restart" data-i18n-html> Server neustarten</button>
+        <span style="font-size:0.8rem;color:var(--text-muted);" data-i18n="restart.downtime">~10 Sek. Ausfall</span>
+      </div>
+    </div>
+  </div>
+
+  <!--  ADMIN: LERNEN  -->
+  <div class="card">
+    <div class="card-header">
+      <span data-i18n="card.learn" data-i18n-html> Lernen / Indizieren</span>
+      <div style="display:flex;gap:6px;">
+        <button id="btn-ingest" class="btn btn-primary btn-sm" data-i18n="btn.ingest" data-i18n-html> Jetzt lernen</button>
+        <button id="btn-reindex" class="btn btn-sm" style="background:var(--warning);color:#fff;" data-i18n="btn.reindex" data-i18n-html> DB neu aufbauen</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;" data-i18n="learn.desc" data-i18n-html>
+        PDFs aus <code>docs/</code> werden eingelesen, gechunkt und in ChromaDB indiziert.
+        Bereits indizierte Dateien werden übersprungen.
+      </p>
+
+      <!-- Upload -->
+      <div class="upload-area" id="upload-area">
+        <span data-i18n="upload.prompt" data-i18n-html> PDF hier ablegen oder klicken zum Hochladen</span>
+        <input type="file" id="file-input" accept=".pdf" />
+      </div>
+
+      <div id="ingest-log" class="log-box">
+        <div class="info" data-i18n="log.waiting">Warte auf Import …</div>
+      </div>
+    </div>
+  </div>
+
+  <!--  ANTWORT-MODUS  -->
+  <div class="card">
+    <div class="card-header"><span data-i18n="card.mode" data-i18n-html> Antwort-Modus</span></div>
+    <div class="card-body">
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
+          <div style="font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:8px;">
+            <span id="mode-label"> Nur aus Dokumenten</span>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
+            <span id="mode-desc">
+              Die KI antwortet nur aus hochgeladenen Produktdokumenten.
+              Medizinische Fragen ohne passende Doku werden freundlich abgewiesen.
+            </span>
+          </div>
+        </div>
+        <!-- Toggle Switch -->
+        <label style="position:relative; display:inline-block; width:52px; height:28px; flex-shrink:0; cursor:pointer;">
+          <input type="checkbox" id="mode-toggle" style="opacity:0; width:0; height:0;" />
+          <span id="mode-slider"
+            style="position:absolute; inset:0; background:#94a3b8; border-radius:28px;
+                   transition:all .25s; cursor:pointer;">
+            <span id="mode-knob"
+              style="position:absolute; top:3px; left:3px; width:22px; height:22px;
+                     background:#fff; border-radius:50%; transition:all .25s;
+                     box-shadow:0 1px 3px rgba(0,0,0,.2);">
+            </span>
+          </span>
+        </label>
+      </div>
+      <div style="margin-top:10px; padding:8px 12px; background:#f8fafc; border-radius:8px; font-size:0.75rem; color:var(--text-muted); display:flex; gap:8px; align-items:center;">
+        <span></span>
+        <span id="mode-hint">
+          <strong>Aktiv:</strong> Nur Dokumente — sicher für medizinische Fragen.
+          <strong>Aus:</strong> Auch Allgemeinwissen — für Smalltalk & Alltag.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!--  RAG-PARAMETER (klappbar)  -->
+  <div class="card">
+    <div class="card-header" id="params-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+      <span data-i18n="card.params" data-i18n-html> RAG-Parameter</span>
+      <span id="params-chevron" style="transition:transform .2s;"></span>
+    </div>
+    <div class="card-body" id="params-body" style="display:none;">
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;" data-i18n="params.desc">
+        Diese Parameter wirken sofort – kein Neustart nötig.
+      </p>
+      <div id="params-list"></div>
+    </div>
+  </div>
+  </div><!-- /tab-settings -->
+
+  <!--  DATENBANK TAB  -->
+  <div id="tab-database" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <span data-i18n="card.db" data-i18n-html> Datenbank – indizierte Dateien</span>
+      <button id="btn-db-refresh" class="btn btn-sm" style="background:var(--accent);color:#fff;" data-i18n="btn.refresh" data-i18n-html> Aktualisieren</button>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div style="overflow-x:auto;">
+        <table id="db-table" style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+          <thead>
+            <tr style="background:var(--bg);">
+              <th style="text-align:left;padding:12px 16px;" data-i18n="db.header.file">Dateiname</th>
+              <th style="text-align:center;padding:12px 16px;width:80px;" data-i18n="db.header.chunks">Chunks</th>
+              <th style="text-align:center;padding:12px 16px;width:160px;" data-i18n="db.header.date">Indiziert am</th>
+              <th style="text-align:center;padding:12px 16px;width:80px;" data-i18n="db.header.action">Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="db-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted);" data-i18n="db.loading" data-i18n-html> Lade …</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div><!-- /tab-database -->
+
+  <!--  CHAT TAB  -->
+  <div id="tab-chat" class="tab-content active">
+  <div class="card">
+    <div class="card-header">
+      <span data-i18n="card.chat" data-i18n-html> Chat – frage die Dokumentation</span>
+      <span style="font-size:0.7rem;color:var(--text-muted);" data-i18n="chat.session">Session-Verlauf bleibt erhalten</span>
+    </div>
+    <div id="chat-msgs" class="card-body">
+      <div style="padding:30px;text-align:center;color:var(--text-muted);font-size:0.9rem;">
+        <span data-i18n="chat.placeholder"> Stelle eine Frage zu den hochgeladenen Dokumenten</span><br/>
+        <span style="font-size:0.75rem;" data-i18n="chat.example">z.B. "Welche Produktmerkmale sind wichtig?"</span>
+      </div>
+    </div>
+    <div class="chat-input">
+      <i id="voice-input-icon" class="fas fa-microphone voice-input-icon"></i>
+      <textarea id="chat-inp" rows="1" data-i18n-placeholder="chat.input_placeholder" placeholder="Nachricht eingeben … (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
+      <button id="voice-toggle" class="btn" style="background:transparent;border:1.5px solid var(--border);font-size:0.75rem;padding:6px 10px;border-radius:10px;white-space:nowrap;" data-i18n-title="voice.toggle_title" title="Sprachmodus ein/aus" data-i18n="voice.type_mode" data-i18n-html> Schreiben</button>
+      <button id="chat-btn" class="btn btn-primary" data-i18n="chat.send" data-i18n-html>Senden</button>
+    </div>
+  </div>
+  </div><!-- /tab-chat -->
+
+  <footer style="text-align:center;padding:20px 0;font-size:0.75rem;color:var(--text-muted);" data-i18n="footer" data-i18n-html>
+    BOLTYN · läuft auf NAS · <a href="/api/status" style="color:var(--accent);">/api/status</a>
+  </footer>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  //  i18n: localStorage override, sonst Browser-Sprache
+  let LANG = localStorage.getItem('boltyn_lang') || ((navigator.language || 'en').startsWith('de') ? 'de' : 'en');
+
+  const _t = {
+    de: {
+      // Header
+      'chat': '<i class="fas fa-comment"></i> Chat',
+      'database': '<i class="fas fa-database"></i> Datenbank',
+      'settings': '<i class="fas fa-cog"></i> Einstellungen',
+      'status.ready': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Bereit',
+      'status.no_docs': '<i class="fas fa-exclamation-triangle" style="color:#d97706"></i> Keine Dokus',
+      'status.offline': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Offline',
+      'status.restarting': '<i class="fas fa-sync-alt fa-spin"></i> Starte neu',
+      // Status card
+      'card.status': '<i class="fas fa-chart-bar"></i> Status',
+      'stat.llm': 'LLM (Ollama)',
+      'stat.model': '<i class="fas fa-brain"></i> Modell',
+      'stat.docs': 'Dokumente',
+      'stat.chunks': 'Chunks',
+      'modal.title': 'Modell wählen',
+      'modal.subtitle': 'Klick auf ein Modell zum Aktivieren',
+      'btn.restart': '<i class="fas fa-sync-alt"></i> Server neustarten',
+      'restart.downtime': '~10 Sek. Ausfall',
+      // Model modal
+      'model.speed.fast': 'schnell',
+      'model.speed.medium': 'mittel',
+      'model.speed.precise': 'präzise',
+      'model.tip.fast': 'Ideal für schnelle Antworten & Alltag',
+      'model.tip.medium': 'Guter Kompromiss aus Speed & Qualität',
+      'model.tip.precise': 'Beste Qualität bei Fachfragen & Medizin',
+      'model.none': 'Keine Modelle verfugbar',
+      'model.switching': '<i class="fas fa-spinner fa-pulse"></i>',
+      'model.error': '<i class="fas fa-exclamation-circle"></i> Fehler',
+      'model.disabled_title': '<i class="fas fa-spinner fa-pulse"></i> Server wird neu gestartet',
+      // LLM status
+      'llm.online': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Online',
+      'llm.offline': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Offline',
+      'llm.waiting': '<i class="fas fa-spinner fa-pulse"></i> Warte',
+      'llm.unknown': 'Unbekannt',
+      // Lernen card
+      'card.learn': '<i class="fas fa-graduation-cap"></i> Lernen / Indizieren',
+      'btn.ingest': '<i class="fas fa-graduation-cap"></i> Jetzt lernen',
+      'btn.reindex': '<i class="fas fa-trash-alt"></i> DB neu aufbauen',
+      'learn.desc': 'PDFs aus <code>docs/</code> werden eingelesen, gechunkt und in ChromaDB indiziert. Bereits indizierte Dateien werden übersprungen.',
+      'upload.prompt': '<i class="fas fa-file-pdf"></i> PDF hier ablegen oder klicken zum Hochladen',
+      'log.waiting': 'Warte auf Import …',
+      // Ingest button states
+      'ingest.learning': '<i class="fas fa-spinner fa-pulse"></i> Lerne',
+      'ingest.done': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Fertig',
+      'ingest.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Fehler',
+      // Reindex
+      'reindex.confirm': 'ChromaDB leeren und ALLE PDFs neu indizieren?\nDas löscht den gesamten Index und baut ihn neu auf.',
+      'reindex.working': '<i class="fas fa-spinner fa-pulse"></i> Lsche + lerne',
+      // Upload
+      'upload.pdf_only': 'Nur PDF-Dateien erlaubt.',
+      'upload.uploading': '<i class="fas fa-spinner fa-pulse"></i> Lade hoch',
+      'upload.done': '<i class="fas fa-check-circle" style="color:#16a34a"></i> ${name} hochgeladen & indiziert',
+      'upload.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Fehler: ${msg}',
+      // Antwort-Modus
+      'card.mode': '<i class="fas fa-clipboard-list"></i> Antwort-Modus',
+      'mode.doc_only': 'Nur aus Dokumenten',
+      'mode.doc_only.desc': 'Die KI antwortet nur aus den hochgeladenen Dokumenten. Fragen ohne passende Dokumente werden nicht beantwortet.',
+      'mode.doc_only.hint': '<strong>Aktiv:</strong> Nur Dokumente — Antworten basieren ausschließlich auf den hochgeladenen Dateien. <strong>Aus:</strong> Auch Allgemeinwissen — die KI nutzt zusätzlich ihr eigenes Wissen.',
+
+      'mode.all': 'Auch Allgemeinwissen',
+      'mode.all.desc': 'Die KI antwortet aus Dokumenten + eigenem Wissen. Gut für allgemeine Fragen, aber Aussagen ohne Dokumentengrundlage sind nicht geprüft.',
+      'mode.all.hint': '<strong>Aus:</strong> Auch Allgemeinwissen — die KI kombiniert Dokumente mit eigenem Wissen. <strong>Aktiv:</strong> Nur Dokumente — Antworten nur aus den hochgeladenen Dateien.',
+      // RAG
+      'card.params': '<i class="fas fa-sliders-h"></i> RAG-Parameter',
+      'params.desc': 'Diese Parameter wirken sofort – kein Neustart nötig.',
+      'param.score_threshold': 'Min. Relevanz-Score',
+      'param.score_threshold.desc': 'Chunks unter diesem Score werden ignoriert. 0.0 = alles akzeptieren, 1.0 = nur perfekte Treffer.',
+      'param.similarity_top_k': 'Chunks im Kontext',
+      'param.similarity_top_k.desc': 'Wieviele Dokument-Chunks ans LLM übergeben werden. Mehr = mehr Kontext, aber langsamer.',
+      'param.temperature': 'Kreativität (Temperature)',
+      'param.temperature.desc': '0.0 = deterministisch/faktentreu, 1.0 = kreativ/frei. Für medizinische Fragen niedrig lassen.',
+      'param.unit.pieces': 'Stück',
+      // DB tab
+      'card.db': '<i class="fas fa-database"></i> Datenbank – indizierte Dateien',
+      'btn.refresh': '<i class="fas fa-sync-alt"></i> Aktualisieren',
+      'db.header.file': 'Dateiname',
+      'db.header.chunks': 'Chunks',
+      'db.header.date': 'Indiziert am',
+      'db.header.action': 'Aktion',
+      'db.loading': '<i class="fas fa-spinner fa-pulse"></i> Lade',
+      'db.waiting': '<i class="fas fa-hourglass"></i> Warte auf Import',
+      'db.empty': 'Keine Dokumente im Index',
+      'db.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Fehler beim Laden',
+      'db.delete_title': 'Löschen',
+      'db.delete_confirm': '"${name}" wirklich aus dem Index löschen?',
+      'db.delete_error': 'Fehler: ${msg}',
+      'db.delete_network_error': 'Fehler beim Löschen',
+      'unknown': 'Unbekannt',
+      // Chat
+      'card.chat': '<i class="fas fa-comment-dots"></i> Chat – frage die Dokumentation',
+      'chat.session': 'Session-Verlauf bleibt erhalten',
+      'chat.placeholder': 'Stelle eine Frage zu den hochgeladenen Dokumenten',
+      'chat.example': 'z.B. "Welche Produktmerkmale sind wichtig?"',
+      'chat.input_placeholder': 'Nachricht eingeben … (Enter = senden, Shift+Enter = neue Zeile)',
+      'chat.send': '<i class="fas fa-paper-plane"></i> Senden',
+      'chat.no_answer': '<i class="fas fa-exclamation-triangle" style="color:#d97706"></i> Keine Antwort.',
+      'chat.connection_error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Verbindungsfehler zum Server.',
+      'chat.source_page': 'S. ${page}',
+      'chat.source_unknown': 'unbekannt',
+      'chat.copy': '<i class="fas fa-copy"></i> Copy',
+      'chat.copied': '<i class="fas fa-check"></i> Copied!',
+      // Voice
+      'voice.listen': '<i class="fas fa-volume-up"></i> Vorlesen',
+      'voice.listen_title': 'Spracheingabe nicht unterstutzt (nur Vorlesen)',
+      'voice.speak_mode': '<i class="fas fa-microphone"></i> Sprachmodus',
+      'voice.listen_mode': '<i class="fas fa-volume-up"></i> Vorlesemodus',
+      'voice.speak_placeholder': 'Sprich deine Frage',
+      'voice.listen_placeholder': 'Antworten werden vorgelesen',
+      'voice.type_mode': '<i class="fas fa-keyboard"></i> Schreiben',
+      'voice.listen_btn': '<i class="fas fa-volume-up"></i> Vorlesen',
+      'voice.speak_btn_title': 'Vorlesen',
+      'voice.toggle_title': 'Sprachmodus ein/aus',
+      // Footer
+      'footer': 'BOLTYN · läuft auf NAS · <a href="/api/status" style="color:var(--accent);">/api/status</a>',
+      // Restart confirm
+      'restart.confirm': 'Server wirklich neustarten?\nDas Admin-UI ist für ~10 Sek. nicht erreichbar.',
+      'restart.btn_working': 'Starte neu …',
+      'restart.btn_restarting': 'Server startet neu …',
+    },
+
+    en: {
+      'chat': '<i class="fas fa-comment"></i> Chat',
+      'database': '<i class="fas fa-database"></i> Database',
+      'settings': '<i class="fas fa-cog"></i> Settings',
+      'status.ready': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Ready',
+      'status.no_docs': '<i class="fas fa-exclamation-triangle" style="color:#d97706"></i> No documents',
+      'status.offline': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Offline',
+      'status.restarting': '<i class="fas fa-sync-alt fa-spin"></i> Restarting',
+      'card.status': '<i class="fas fa-chart-bar"></i> Status',
+      'stat.llm': 'LLM (Ollama)',
+      'stat.model': '<i class="fas fa-brain"></i> Model',
+      'stat.docs': 'Documents',
+      'stat.chunks': 'Chunks',
+      'modal.title': 'Choose Model',
+      'modal.subtitle': 'Click a model to activate',
+      'btn.restart': '<i class="fas fa-sync-alt"></i> Restart server',
+      'restart.downtime': '~10 sec. downtime',
+      'model.speed.fast': 'fast',
+      'model.speed.medium': 'medium',
+      'model.speed.precise': 'precise',
+      'model.tip.fast': 'Great for quick answers & everyday use',
+      'model.tip.medium': 'Good balance of speed & quality',
+      'model.tip.precise': 'Best quality for expert & medical questions',
+      'model.none': 'No models available',
+      'model.switching': '<i class="fas fa-spinner fa-pulse"></i>',
+      'model.error': '<i class="fas fa-exclamation-circle"></i> Error',
+      'model.disabled_title': '<i class="fas fa-spinner fa-pulse"></i> Server is restarting',
+      'llm.online': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Online',
+      'llm.offline': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Offline',
+      'llm.waiting': '<i class="fas fa-spinner fa-pulse"></i> Waiting',
+      'llm.unknown': 'Unknown',
+      'card.learn': '<i class="fas fa-graduation-cap"></i> Learning / Indexing',
+      'btn.ingest': '<i class="fas fa-graduation-cap"></i> Learn now',
+      'btn.reindex': '<i class="fas fa-trash-alt"></i> Rebuild DB',
+      'learn.desc': 'PDFs from <code>docs/</code> are read, chunked and indexed in ChromaDB. Already indexed files are skipped.',
+      'upload.prompt': '<i class="fas fa-file-pdf"></i> Drop PDF here or click to upload',
+      'log.waiting': 'Waiting for import …',
+      'ingest.learning': '<i class="fas fa-spinner fa-pulse"></i> Learning',
+      'ingest.done': '<i class="fas fa-check-circle" style="color:#16a34a"></i> Done',
+      'ingest.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Error',
+      'reindex.confirm': 'Clear ChromaDB and re-index ALL PDFs?\nThis will delete the entire index and rebuild it.',
+      'reindex.working': '<i class="fas fa-spinner fa-pulse"></i> Clearing + learning',
+      'upload.pdf_only': 'Only PDF files allowed.',
+      'upload.uploading': '<i class="fas fa-spinner fa-pulse"></i> Uploading',
+      'upload.done': '<i class="fas fa-check-circle" style="color:#16a34a"></i> ${name} uploaded & indexed',
+      'upload.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Error: ${msg}',
+      'card.mode': '<i class="fas fa-clipboard-list"></i> Answer Mode',
+      'mode.doc_only': 'Documents only',
+      'mode.doc_only.desc': 'The AI only answers from the uploaded documents. Questions without matching documents are declined.',
+      'mode.doc_only.hint': '<strong>Active:</strong> Documents only — answers are based solely on uploaded files. <strong>Off:</strong> General knowledge too — the AI also uses its own knowledge.',
+
+      'mode.all': 'General knowledge too',
+      'mode.all.desc': 'The AI answers from documents + its own knowledge. Good for general questions, but claims without documentary evidence are unverified.',
+      'mode.all.hint': '<strong>Off:</strong> General knowledge too — the AI combines documents with its own knowledge. <strong>Active:</strong> Documents only — answers from uploaded files only.',
+      'card.params': '<i class="fas fa-sliders-h"></i> RAG Parameters',
+      'params.desc': 'These parameters take effect immediately – no restart needed.',
+      'param.score_threshold': 'Min. Relevance Score',
+      'param.score_threshold.desc': 'Chunks below this score are ignored. 0.0 = accept everything, 1.0 = only perfect matches.',
+      'param.similarity_top_k': 'Context Chunks',
+      'param.similarity_top_k.desc': 'How many document chunks are passed to the LLM. More = more context, but slower.',
+      'param.temperature': 'Creativity (Temperature)',
+      'param.temperature.desc': '0.0 = deterministic/factual, 1.0 = creative/ free. Keep low for medical questions.',
+      'param.unit.pieces': 'pieces',
+      'card.db': '<i class="fas fa-database"></i> Database – indexed files',
+      'btn.refresh': '<i class="fas fa-sync-alt"></i> Refresh',
+      'db.header.file': 'Filename',
+      'db.header.chunks': 'Chunks',
+      'db.header.date': 'Indexed at',
+      'db.header.action': 'Action',
+      'db.loading': '<i class="fas fa-spinner fa-pulse"></i> Loading',
+      'db.waiting': '<i class="fas fa-hourglass"></i> Waiting for import',
+      'db.empty': 'No documents in index',
+      'db.error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Error loading',
+      'db.delete_title': 'Delete',
+      'db.delete_confirm': 'Delete "${name}" from index?',
+      'db.delete_error': 'Error: ${msg}',
+      'db.delete_network_error': 'Delete failed',
+      'unknown': 'Unknown',
+      'card.chat': '<i class="fas fa-comment-dots"></i> Chat – ask the documentation',
+      'chat.session': 'Session history is preserved',
+      'chat.placeholder': 'Ask a question about the uploaded documents',
+      'chat.example': 'e.g. "What are the key product features?"',
+      'chat.input_placeholder': 'Type a message … (Enter = send, Shift+Enter = new line)',
+      'chat.send': '<i class="fas fa-paper-plane"></i> Send',
+      'chat.no_answer': '<i class="fas fa-exclamation-triangle" style="color:#d97706"></i> No answer.',
+      'chat.connection_error': '<i class="fas fa-times-circle" style="color:#dc2626"></i> Connection error.',
+      'chat.source_page': 'p. ${page}',
+      'chat.source_unknown': 'unknown',
+      'chat.copy': '<i class="fas fa-copy"></i> Copy',
+      'chat.copied': '<i class="fas fa-check"></i> Copied!',
+      'voice.listen': '<i class="fas fa-volume-up"></i> Listen',
+      'voice.listen_title': 'Speech input not supported (listen only)',
+      'voice.speak_mode': '<i class="fas fa-microphone"></i> Voice mode',
+      'voice.listen_mode': '<i class="fas fa-volume-up"></i> Listen mode',
+      'voice.speak_placeholder': 'Speak your question',
+      'voice.listen_placeholder': 'Answers will be read aloud',
+      'voice.type_mode': '<i class="fas fa-keyboard"></i> Type',
+      'voice.listen_btn': '<i class="fas fa-volume-up"></i> Listen',
+      'voice.speak_btn_title': 'Read aloud',
+      'voice.toggle_title': 'Toggle voice mode',
+      'footer': 'BOLTYN · running on NAS · <a href="/api/status" style="color:var(--accent);">/api/status</a>',
+      'restart.confirm': 'Really restart the server?\nThe admin UI will be unavailable for ~10 sec.',
+      'restart.btn_working': 'Restarting …',
+      'restart.btn_restarting': 'Server is restarting …',
+    },
+  };
+
+  const __ = (key, vars) => {
+    let s = (_t[LANG] && _t[LANG][key]) || (_t.en && _t.en[key]) || key;
+    if (vars) {
+      for (const [k, v] of Object.entries(vars)) {
+        s = s.replace('${' + k + '}', v);
+      }
+    }
+    return s;
+  };
+
+  window.setLang = function(lang) {
+    localStorage.setItem('boltyn_lang', lang);
+    location.reload();
+  };
+
+  function highlightLang() {
+    const sel = document.getElementById('lang-select');
+    if (sel) sel.value = LANG;
+  }
+
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const isHtml = el.getAttribute('data-i18n-html') !== null;
+      if (isHtml) {
+        el.innerHTML = __(key);
+      } else {
+        el.textContent = __(key);
+      }
+    });
+    document.querySelectorAll('[data-i18n-html]:not([data-i18n])').forEach(el => {
+      el.innerHTML = __(el.getAttribute('data-i18n-html'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      el.setAttribute('title', __(el.getAttribute('data-i18n-title')));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      el.setAttribute('placeholder', __(el.getAttribute('data-i18n-placeholder')));
+    });
+  }
+
+  //  DOM refs 
+  const $ = id => document.getElementById(id);
+  const chatMsgs = $('chat-msgs');
+  const chatInp  = $('chat-inp');
+  const chatBtn  = $('chat-btn');
+  const btnIngest = $('btn-ingest');
+  const ingestLog = $('ingest-log');
+    const statusText = $('status-text');
+  const uploadArea = $('upload-area');
+  const fileInput = $('file-input');
+
+  //  Tab Switching 
+  window.switchTab = function(name) {
+    // Update buttons
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+    // Update panes
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    // Body class für full-height chat
+    document.body.classList.toggle('chat-mode', name === 'chat');
+    // Focus input when switching to chat
+    if (name === 'chat') {
+      const inp = document.getElementById('chat-inp');
+      if (inp) setTimeout(() => inp.focus(), 100);
+    }
+    // Load documents when switching to database
+    if (name === 'database') loadDocuments();
+    localStorage.setItem('boltyn_tab', name);
+  };
+
+  // Init tab from localStorage
+  function initTab() {
+    const saved = localStorage.getItem('boltyn_tab');
+    if (saved === 'database') switchTab('database');
+    else if (saved === 'settings') switchTab('settings');
+    else switchTab('chat');
+  }
+
+  //  Datenbank-Tab: Dokumente laden 
+  async function loadDocuments() {
+    const tbody = $('db-tbody');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted);">' + __('db.loading') + '</td></tr>';
+    try {
+      const r = await fetch('/api/documents');
+      const data = await r.json();
+      const docs = data.documents || [];
+      if (docs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted);">' + __('db.empty') + '</td></tr>';
+        return;
+      }
+      tbody.innerHTML = docs.map(d => {
+        const dateStr = d.ingested_at ? new Date(d.ingested_at).toLocaleString() : '—';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 16px;">${escHtml(d.filename)}</td>
+          <td style="text-align:center;padding:10px 16px;">${d.chunks}</td>
+          <td style="text-align:center;padding:10px 16px;font-size:0.8rem;color:var(--text-muted);">${dateStr}</td>
+          <td style="text-align:center;padding:10px 16px;">
+            <button class="btn btn-sm" style="background:none;border:none;cursor:pointer;padding:4px 8px;font-size:1rem;" onclick="deleteDocument('${escHtml(d.filename)}')" title="${__('db.delete_title')}"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--danger);">' + __('db.error') + '</td></tr>';
+    }
+  }
+
+  async function deleteDocument(filename) {
+    if (!confirm(__('db.delete_confirm', {name: filename}))) return;
+    try {
+      const r = await fetch('/api/documents/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      });
+      const result = await r.json();
+      if (result.status === 'ok') {
+        await loadDocuments();
+        refreshStatus();
+      } else {
+        alert(__('db.delete_error', {msg: result.message || __('unknown')}));
+      }
+    } catch (e) {
+      alert(__('db.delete_network_error'));
+    }
+  }
+
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  //  Session ID (stable per browser) 
+  const sid = (() => {
+    const k = 'boltyn_session_id';
+    let v = localStorage.getItem(k);
+    if (!v) { v = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2); localStorage.setItem(k, v); }
+    return v;
+  })();
+
+  //  Status polling 
+  async function refreshStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const s = await r.json();
+
+      // LLM
+      const llmEl = $('stat-llm');
+      llmEl.className = 'stat ' + (s.llm_available ? 'ok' : 'err');
+      llmEl.querySelector('.value').innerHTML = s.llm_available ? __('llm.online') : __('llm.offline');
+
+      // Docs + Chunks (kombiniert)
+      const docsChunksEl = $('stat-docs-chunks');
+      const hasAny = s.document_count > 0 || s.chunk_count > 0;
+      docsChunksEl.className = 'stat ' + (hasAny ? 'ok' : '');
+      $('stat-docs-value').textContent = s.document_count;
+      $('stat-chunks-value').textContent = s.chunk_count;
+
+      // Model wird von refreshModels() verwaltet – nichts tun
+
+      // Overall status dot
+      if (s.ready) {
+        statusText.innerHTML = __('status.ready');
+      } else if (s.llm_available) {
+        statusText.innerHTML = __('status.no_docs');
+      } else {
+        statusText.innerHTML = __('status.offline');
+      }
+    } catch (e) {
+      statusText.innerHTML = __('status.offline');
+      // LLM-Status ebenfalls auf unbekannt setzen
+      const llmEl = $('stat-llm');
+      llmEl.className = 'stat';
+      llmEl.querySelector('.value').textContent = __('llm.unknown');
+      // Docs + Chunks zurücksetzen
+      $('stat-docs-chunks').className = 'stat';
+      $('stat-docs-value').textContent = __('llm.unknown');
+      $('stat-chunks-value').textContent = __('llm.unknown');
+    }
+  }
+
+  //  Antwort-Modus Toggle 
+  const modeToggle = $('mode-toggle');
+  const modeLabel = $('mode-label');
+  const modeDesc = $('mode-desc');
+  const modeHint = $('mode-hint');
+  const modeSlider = $('mode-slider');
+  const modeKnob = $('mode-knob');
+
+  function applyModeUI(docOnly) {
+    if (docOnly) {
+      modeLabel.innerHTML = __('mode.doc_only');
+      modeDesc.textContent = __('mode.doc_only.desc');
+      modeHint.innerHTML = __('mode.doc_only.hint');
+      modeSlider.style.background = 'var(--accent)';
+      modeKnob.style.transform = 'translateX(24px)';
+    } else {
+      modeLabel.innerHTML = __('mode.all');
+      modeDesc.textContent = __('mode.all.desc');
+      modeHint.innerHTML = __('mode.all.hint');
+      modeSlider.style.background = '#94a3b8';
+      modeKnob.style.transform = 'translateX(0)';
+    }
+  }
+
+  async function refreshMode() {
+    try {
+      const r = await fetch('/api/config');
+      const data = await r.json();
+      modeToggle.checked = data.document_only;
+      applyModeUI(data.document_only);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  modeToggle.addEventListener('change', async () => {
+    const newVal = modeToggle.checked;
+    applyModeUI(newVal);
+    try {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_only: newVal }),
+      });
+    } catch (e) {
+      // revert on error
+      modeToggle.checked = !newVal;
+      applyModeUI(!newVal);
+    }
+  });
+
+  //  RAG-Parameter (Slider) 
+  let paramDefs = {};
+  let paramVals = {};
+
+  function renderParams() {
+    const container = document.getElementById('params-list');
+    if (!container) return;
+    container.innerHTML = Object.entries(paramDefs).map(([key, def]) => {
+      const val = paramVals[key] ?? def.default ?? 0;
+      const unit = def.unit ? __('param.unit.pieces') : def.unit;
+      return `<div style="margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <label for="param-${key}" style="font-weight:600;font-size:0.85rem;">${__('param.' + key)}</label>
+          <span id="param-val-${key}" style="font-size:0.85rem;font-weight:600;color:var(--accent);">${val}</span>
+        </div>
+        <input type="range" id="param-${key}"
+          min="${def.min}" max="${def.max}" step="${def.step}" value="${val}"
+          style="width:100%;margin:4px 0;accent-color:var(--accent);"
+          oninput="updateParamPreview('${key}')" />
+        <div style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;">
+          <span>${__('param.' + key + '.desc')}</span>
+          <span style="white-space:nowrap;margin-left:8px;">${def.min} – ${def.max}${unit ? ' ' + unit : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.updateParamPreview = function(key) {
+    const input = document.getElementById('param-' + key);
+    const display = document.getElementById('param-val-' + key);
+    if (input && display) {
+      display.textContent = input.value;
+    }
+  };
+
+  async function refreshParams() {
+    try {
+      const r = await fetch('/api/params');
+      const data = await r.json();
+      paramDefs = data.definitions || {};
+      paramVals = data.values || {};
+      renderParams();
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Apply params on input change (debounced)
+  document.addEventListener('change', async (e) => {
+    if (e.target.id && e.target.id.startsWith('param-')) {
+      const key = e.target.id.replace('param-', '');
+      const input = e.target;
+      const val = input.step.includes('.') ? parseFloat(input.value) : parseInt(input.value);
+      const display = document.getElementById('param-val-' + key);
+      if (display) display.textContent = val;
+      try {
+        const r = await fetch('/api/params', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [key]: val }),
+        });
+        const result = await r.json();
+        if (result.status === 'ok') {
+          paramVals[key] = val;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  });
+
+  //  Ingest Log 
+  async function refreshLog() {
+    try {
+      const r = await fetch('/api/log');
+      const data = await r.json();
+      const log = data.log || [];
+      if (log.length === 0) {
+        ingestLog.innerHTML = '<div class="info">' + __('db.waiting') + '</div>';
+        return;
+      }
+      ingestLog.innerHTML = log.map(line => {
+        let cls = 'info';
+        if (line.includes('')) cls = 'ok';
+        if (line.includes('') || line.includes('') || line.includes('Fehler')) cls = 'err';
+        return `<div class="${cls}">${line}</div>`;
+      }).join('');
+      ingestLog.scrollTop = ingestLog.scrollHeight;
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  //  Model Switcher (Kachel → Modal) 
+  const modelCurrentName = $('model-current-name');
+  const modelModalOverlay = $('model-modal-overlay');
+  const modelModalList = $('model-modal-list');
+  let currentModel = '';
+  let modelList = [];
+
+  function modelCharacter(name, sizeGb) {
+    const fast = sizeGb < 4;
+    const capable = sizeGb >= 7;
+    return {
+      speed: fast ? __('model.speed.fast') : (capable ? __('model.speed.precise') : __('model.speed.medium')),
+      tip: fast ? __('model.tip.fast') :
+           capable ? __('model.tip.precise') :
+           __('model.tip.medium'),
+    };
+  }
+
+  // Modal-Inhalt rendern
+  function renderModal(models, current) {
+    if (!models || models.length === 0) {
+      modelModalList.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">' + __('model.none') + '</div>';
+      return;
+    }
+    modelModalList.innerHTML = models.map((m, i) => {
+      const selected = m.name === current;
+      const char = modelCharacter(m.name, m.size_gb);
+      return `<div class="model-opt" data-model="${m.name}"
+        style="display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer;
+               border-radius:10px; margin-bottom:${i < models.length-1 ? '6px' : '0'};
+               border:1.5px solid ${selected ? 'var(--accent)' : 'var(--border)'};
+               background:${selected ? '#eef2ff' : 'transparent'};
+               transition:all .15s;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.85rem; font-weight:600; color:var(--text); display:flex; align-items:center; gap:6px;">
+            ${selected ? ' ' : ''}${m.name}
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
+            <span> ${m.size_gb} GB</span>
+            <span>${char.speed}</span>
+          </div>
+        </div>
+        <div style="font-size:0.7rem; color:${selected ? 'var(--accent)' : 'var(--text-muted)'}; text-align:right; max-width:140px; line-height:1.4; font-weight:${selected ? '500' : '400'};">
+          ${char.tip}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Hover-Effekte
+    modelModalList.querySelectorAll('.model-opt').forEach(el => {
+      const isActive = el.dataset.model === currentModel;
+      el.addEventListener('mouseenter', () => {
+        el.style.borderColor = 'var(--accent)';
+        el.style.background = isActive ? '#e0e7ff' : '#f1f5f9';
+        el.style.transform = 'translateX(3px)';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'translateX(0)';
+        if (isActive) {
+          el.style.borderColor = 'var(--accent)';
+          el.style.background = '#eef2ff';
+        } else {
+          el.style.borderColor = 'var(--border)';
+          el.style.background = 'transparent';
+        }
+      });
+    });
+  }
+
+  // Modal öffnen (wird von onclick der Kachel aufgerufen)
+  window.openModelModal = function() {
+    renderModal(modelList, currentModel);
+    modelModalOverlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Modal schließen
+  function closeModelModal() {
+    modelModalOverlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // Close-Button
+  $('model-modal-close').addEventListener('click', closeModelModal);
+
+  // Klick auf Overlay (Hintergrund) → schließen
+  modelModalOverlay.addEventListener('click', (e) => {
+    if (e.target === modelModalOverlay) closeModelModal();
+  });
+
+  // Klick auf Option → direkt wechseln
+  modelModalList.addEventListener('click', async (e) => {
+    const opt = e.target.closest('.model-opt');
+    if (!opt) return;
+    const model = opt.dataset.model;
+    if (!model) return;
+
+    // Bereits aktiv? → nur schließen
+    if (model === currentModel) {
+      closeModelModal();
+      return;
+    }
+
+    // Visuelles Feedback auf der Kachel
+    const statEl = $('stat-model');
+    const origText = statEl.querySelector('.value').textContent;
+    statEl.querySelector('.value').innerHTML = __('model.switching');
+    statEl.style.pointerEvents = 'none';
+
+    try {
+      const r = await fetch('/api/models/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+      });
+      const result = await r.json();
+      if (result.status === 'ok') {
+        currentModel = result.model;
+        closeModelModal();
+        await refreshStatus();
+        await refreshLog();
+        refreshModels();
+        // Kurz "" auf der Kachel
+        statEl.querySelector('.value').textContent = ' ' + currentModel;
+        setTimeout(() => {
+          statEl.querySelector('.value').textContent = currentModel;
+          statEl.style.pointerEvents = '';
+        }, 1200);
+      } else {
+        statEl.querySelector('.value').innerHTML = __('model.error');
+        setTimeout(() => {
+          refreshModels();
+          statEl.style.pointerEvents = '';
+        }, 2000);
+      }
+    } catch (e) {
+      statEl.querySelector('.value').innerHTML = __('model.error');
+      setTimeout(() => {
+        refreshModels();
+        statEl.style.pointerEvents = '';
+      }, 2000);
+    }
+  });
+
+  // Escape → schließen
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modelModalOverlay.style.display === 'flex') closeModelModal();
+  });
+
+  // Model-Liste vom Server holen + Kachel updaten
+  async function refreshModels() {
+    try {
+      const r = await fetch('/api/models');
+      const data = await r.json();
+      modelList = (data.models || []).filter(m => !m.name.includes('embed'));
+      currentModel = data.current || '';
+      // Falls das aktuelle Modell ein Embedding-Modell ist (sollte nicht vorkommen)
+      if (modelList.length > 0 && !modelList.find(m => m.name === currentModel)) {
+        currentModel = modelList[0].name;
+      }
+      modelCurrentName.textContent = currentModel || '—';
+    } catch (e) {
+      modelCurrentName.textContent = '';
+    }
+  }
+
+  //  Ingest trigger 
+  btnIngest.addEventListener('click', async () => {
+    btnIngest.disabled = true;
+    btnIngest.innerHTML = __('ingest.learning');
+    $('stat-docs-value').textContent = ' …';
+    $('stat-chunks-value').textContent = ' …';
+    $('stat-docs-chunks').className = 'stat';
+    try {
+      const r = await fetch('/api/ingest', { method: 'POST' });
+      const result = await r.json();
+      await refreshStatus();
+      await refreshLog();
+      btnIngest.innerHTML = __('ingest.done');
+      setTimeout(() => {
+        btnIngest.innerHTML = __('btn.ingest');
+        btnIngest.disabled = false;
+      }, 2000);
+    } catch (e) {
+      btnIngest.innerHTML = __('ingest.error');
+      btnIngest.disabled = false;
+      await refreshLog();
+    }
+  });
+
+  //  Reindex trigger 
+  const btnReindex = $('btn-reindex');
+  btnReindex.addEventListener('click', async () => {
+    if (!confirm(__('reindex.confirm'))) return;
+    btnReindex.disabled = true;
+    btnReindex.innerHTML = __('reindex.working');
+    $('stat-docs-value').textContent = '0';
+    $('stat-chunks-value').textContent = '0';
+    $('stat-docs-chunks').className = 'stat';
+    try {
+      const r = await fetch('/api/reindex', { method: 'POST' });
+      const result = await r.json();
+      await refreshStatus();
+      await refreshLog();
+      btnReindex.innerHTML = __('ingest.done');
+      setTimeout(() => {
+        btnReindex.innerHTML = __('btn.reindex');
+        btnReindex.disabled = false;
+      }, 2000);
+    } catch (e) {
+      btnReindex.innerHTML = __('ingest.error');
+      btnReindex.disabled = false;
+      await refreshLog();
+    }
+  });
+
+  //  Restart trigger 
+  const btnRestart = $('btn-restart');
+  const statModel = $('stat-model');
+  const origModelStyles = {};
+  function disableModelSwitch(disabled) {
+    if (disabled) {
+      origModelStyles.pointerEvents = statModel.style.pointerEvents;
+      origModelStyles.opacity = statModel.style.opacity;
+      origModelStyles.cursor = statModel.style.cursor;
+      statModel.style.pointerEvents = 'none';
+      statModel.style.opacity = '0.4';
+      statModel.style.cursor = 'not-allowed';
+      statModel.title = __('model.disabled_title');
+    } else {
+      statModel.style.pointerEvents = origModelStyles.pointerEvents || '';
+      statModel.style.opacity = origModelStyles.opacity || '';
+      statModel.style.cursor = origModelStyles.cursor || 'pointer';
+      statModel.title = '';
+    }
+  }
+  btnRestart.addEventListener('click', async () => {
+    if (!confirm(__('restart.confirm'))) return;
+    btnRestart.disabled = true;
+    btnRestart.textContent = __('restart.btn_working');
+    disableModelSwitch(true);
+    // LLM-Status auf Warten setzen
+    $('stat-llm').className = 'stat';
+    $('stat-llm').querySelector('.value').innerHTML = __('llm.waiting');
+    // Header-Badge zurücksetzen
+    statusText.innerHTML = __('status.restarting');
+    try {
+      await fetch('/api/restart', { method: 'POST' });
+      btnRestart.textContent = __('restart.btn_restarting');
+      setTimeout(() => {
+        btnRestart.innerHTML = __('btn.restart');
+        btnRestart.disabled = false;
+        disableModelSwitch(false);
+        refreshStatus();
+      }, 8000);
+    } catch (e) {
+      btnRestart.innerHTML = __('btn.restart');
+      btnRestart.disabled = false;
+      disableModelSwitch(false);
+      refreshStatus();
+    }
+  });
+
+  //  RAG-Parameter klappbar 
+  const paramsToggle = $('params-toggle');
+  const paramsBody = $('params-body');
+  const paramsChevron = $('params-chevron');
+  paramsToggle.addEventListener('click', () => {
+    const isOpen = paramsBody.style.display !== 'none';
+    paramsBody.style.display = isOpen ? 'none' : 'block';
+    paramsChevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+  });
+
+  //  DB-Refresh 
+  const btnDbRefresh = $('btn-db-refresh');
+  btnDbRefresh.addEventListener('click', loadDocuments);
+
+  //  File upload 
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) uploadFile(files[0]);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) uploadFile(fileInput.files[0]);
+  });
+
+  async function uploadFile(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert(__('upload.pdf_only'));
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    uploadArea.innerHTML = __('upload.uploading');
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', body: formData });
+      const result = await r.json();
+      uploadArea.innerHTML = __('upload.done', {name: file.name});
+      await refreshStatus();
+      await refreshLog();
+    } catch (e) {
+      uploadArea.innerHTML = __('upload.error', {msg: e.message});
+    }
+    setTimeout(() => {
+      uploadArea.innerHTML = __('upload.prompt') + ' <input type="file" id="file-input" accept=".pdf" />';
+      document.getElementById('file-input').addEventListener('change', () => {
+        if (fileInput.files.length > 0) uploadFile(fileInput.files[0]);
+      });
+    }, 3000);
+  }
+
+  //  Chat 
+  const CONFIG = {
+    session_id: sid,
+  };
+
+  function scrollChat() { chatMsgs.scrollTop = chatMsgs.scrollHeight; }
+
+  function addMessage(role, html, isHTML = false) {
+    const row = document.createElement('div');
+    row.className = `row ${role}`;
+    const b = document.createElement('div');
+    b.className = 'bub';
+    if (isHTML) b.innerHTML = html;
+    else b.textContent = html;
+    row.appendChild(b);
+    // Remove placeholder
+    const placeholder = chatMsgs.querySelector('div[style]');
+    if (placeholder && role !== 'typing') placeholder.remove();
+    chatMsgs.appendChild(row);
+    scrollChat();
+    return b;
+  }
+
+  function showTyping() {
+    const row = document.createElement('div');
+    row.className = 'row bot typing';
+    row.innerHTML = '<div class="bub"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+    chatMsgs.appendChild(row);
+    scrollChat();
+    return row;
+  }
+
+  function renderMarkdown(el, markdown) {
+    if (!markdown) return;
+    try {
+      const raw = marked.parse(markdown);
+      const safe = DOMPurify.sanitize(raw, {
+        USE_PROFILES: { html: true },
+        ADD_TAGS: ['table','thead','tbody','tr','th','td'],
+        ADD_ATTR: ['align','colspan','rowspan','class']
+      });
+      el.innerHTML = safe;
+
+      // Syntax highlight
+      el.querySelectorAll('pre code').forEach(block => {
+        try { hljs.highlightElement(block); } catch {}
+        if (!block.parentElement.querySelector('.code-actions')) {
+          const bar = document.createElement('div');
+          bar.className = 'code-actions';
+          const btn = document.createElement('button');
+          btn.className = 'copy-btn';
+          btn.innerHTML = __('chat.copy');
+          btn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(block.innerText);
+              btn.innerHTML = __('chat.copied');
+              setTimeout(() => btn.innerHTML = __('chat.copy'), 1200);
+            } catch {}
+          };
+          block.parentElement.prepend(bar);
+          bar.appendChild(btn);
+        }
+      });
+    } catch (e) {
+      el.textContent = markdown;
+    }
+  }
+
+  function addSources(el, sources) {
+    if (!sources || sources.length === 0) return;
+    const container = document.createElement('div');
+    container.className = 'sources';
+    container.innerHTML = sources.map(s =>
+      `<span class="source-chip"> ${s.filename || __('chat.source_unknown')}${s.page ? ` (${__('chat.source_page', {page: s.page})})` : ''}</span>`
+    ).join('');
+    el.appendChild(container);
+  }
+
+  async function sendMessage() {
+    const text = chatInp.value.trim();
+    if (!text) return;
+
+    addMessage('user', text);
+    chatInp.value = ''; autoResize();
+    chatBtn.disabled = true; chatInp.disabled = true;
+
+    const typing = showTyping();
+
+    try {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sid, message: text }),
+      });
+      const data = await resp.json();
+      const answer = data.answer || data.text || __('chat.no_answer');
+      const sources = data.sources || [];
+
+      typing.remove();
+      const bubble = addMessage('bot', '', true);
+      renderMarkdown(bubble, answer);
+      addSources(bubble, sources);
+      addSpeakButton(bubble, answer);
+      scrollChat(); // nochmal nach render, falls sich Höhe geändert hat
+
+    } catch (e) {
+      typing.remove();
+      addMessage('bot', __('chat.connection_error'), true);
+    } finally {
+      chatBtn.disabled = false; chatInp.disabled = false; chatInp.focus();
+    }
+  }
+
+  //  Sprachmodus (Voice Conversation) 
+  const voiceToggle = $('voice-toggle');
+  const voiceIcon = $('voice-input-icon');
+  let voiceMode = false;
+  let recognition = null;
+  let voiceLoopRunning = false;
+
+  // Prüfe browser support
+  const hasSpeechRec = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const hasSpeechSynth = !!window.speechSynthesis;
+  if (!hasSpeechRec) {
+    // Kein Mikrofon → nur Vorlesen möglich
+    voiceToggle.innerHTML = __('voice.listen_btn');
+    voiceToggle.title = __('voice.listen_title');
+  }
+
+  function speakText(text, onDone) {
+    if (!hasSpeechSynth) { if (onDone) onDone(); return; }
+    window.speechSynthesis.cancel();
+    const clean = text.replace(/[*#_`\[\]]/g, '').replace(/\n+/g, ' ').trim();
+    if (!clean) { if (onDone) onDone(); return; }
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = LANG === 'de' ? 'de-DE' : 'en-US';
+    utter.rate = 0.9;
+    if (onDone) { utter.onend = onDone; utter.onerror = onDone; }
+    window.speechSynthesis.speak(utter);
+  }
+
+  function startListening(autoSend) {
+    if (!hasSpeechRec || !recognition) return;
+    try {
+      recognition.lang = LANG === 'de' ? 'de-DE' : 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        chatInp.value = text;
+        autoResize();
+        if (autoSend) sendMessage();
+      };
+      recognition.onerror = () => {
+        if (voiceMode && voiceLoopRunning) setTimeout(() => startListening(true), 500);
+      };
+      recognition.onend = () => {
+        if (voiceMode && voiceLoopRunning) setTimeout(() => startListening(true), 500);
+      };
+      recognition.start();
+    } catch (e) {
+      if (voiceMode && voiceLoopRunning) setTimeout(() => startListening(true), 500);
+    }
+  }
+
+  function stopListening() {
+    if (recognition) try { recognition.abort(); } catch (e) {}
+  }
+
+  function enterVoiceMode() {
+    voiceMode = true;
+    voiceLoopRunning = true;
+    voiceToggle.innerHTML = hasSpeechRec ? __('voice.speak_mode') : __('voice.listen_mode');
+    voiceToggle.style.borderColor = 'var(--danger)';
+    voiceToggle.style.background = '#fef2f2';
+    voiceIcon.classList.add('visible');
+    chatInp.parentElement.classList.add('voice-active');
+    chatInp.placeholder = hasSpeechRec ? __('voice.speak_placeholder') : __('voice.listen_placeholder');
+    chatInp.disabled = true;
+    chatBtn.disabled = true;
+
+    if (hasSpeechRec && !recognition) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) recognition = new SR();
+    }
+    if (hasSpeechRec) startListening(true);
+  }
+
+  function exitVoiceMode() {
+    voiceMode = false;
+    voiceLoopRunning = false;
+    stopListening();
+    window.speechSynthesis.cancel();
+    voiceToggle.innerHTML = hasSpeechRec ? __('voice.type_mode') : __('voice.listen_btn');
+    voiceToggle.style.borderColor = 'var(--border)';
+    voiceToggle.style.background = 'transparent';
+    voiceIcon.classList.remove('visible');
+    chatInp.parentElement.classList.remove('voice-active');
+    chatInp.placeholder = __('chat.input_placeholder');
+    chatInp.disabled = false;
+    chatBtn.disabled = false;
+    chatInp.focus();
+  }
+
+  voiceToggle.addEventListener('click', () => {
+    if (voiceMode) exitVoiceMode();
+    else enterVoiceMode();
+  });
+
+  //  Speech: Antwort vorlesen (nur im Schreibmodus manuell) 
+  function addSpeakButton(bubble, text) {
+    if (!hasSpeechSynth) return;
+    const btn = document.createElement('button');
+    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    btn.title = __('voice.speak_btn_title');
+    btn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer;margin-top:6px;color:var(--text-muted);';
+    btn.addEventListener('click', () => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        return;
+      }
+      btn.innerHTML = '<i class="fas fa-stop"></i>';
+      speakText(text, () => { btn.innerHTML = '<i class="fas fa-volume-up"></i>'; });
+    });
+    bubble.appendChild(btn);
+  }
+
+  // Modifiziere sendMessage für Sprachmodus: auto-vorlesen
+  const origSendMessage = sendMessage;
+  sendMessage = async function() {
+    if (voiceMode) voiceLoopRunning = false; // pausieren während Antwort
+    await origSendMessage.apply(this, arguments);
+    if (voiceMode) {
+      // Original sendMessage aktiviert input/button wieder → im Sprachmodus rückgängig
+      chatInp.disabled = true;
+      chatBtn.disabled = true;
+      // Letzte Bot-Antwort vorlesen, dann weiterhören
+      const lastBot = chatMsgs.querySelector('.row.bot:last-child .bub');
+      if (lastBot && hasSpeechSynth) {
+        const text = lastBot.textContent.replace(/.*$/, '').trim();
+        voiceLoopRunning = true;
+        speakText(text, () => {
+          if (voiceMode) startListening(true);
+        });
+      } else {
+        // Keine Antwort oder kein Speech → direkt weiterhören
+        voiceLoopRunning = true;
+        if (voiceMode && hasSpeechRec) startListening(true);
+      }
+    }
+  };
+
+  //  Auto-resize textarea 
+  function autoResize() {
+    chatInp.style.height = 'auto';
+    chatInp.style.height = Math.min(chatInp.scrollHeight, 160) + 'px';
+  }
+  chatInp.addEventListener('input', autoResize);
+
+  //  Event listeners 
+  chatBtn.addEventListener('click', sendMessage);
+  chatInp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  //  Init 
+  applyTranslations();
+  highlightLang();
+  initTab();
+  refreshStatus();
+  refreshLog();
+  refreshModels();
+  refreshMode();
+  refreshParams();
+  // Auto-refresh every 30s
+  setInterval(refreshStatus, 30000);
+  setInterval(refreshLog, 5000);
+  setInterval(refreshModels, 30000);
+  setInterval(refreshParams, 30000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.egg
+
+# ── ChromaDB (Vektordatenbank – lokal regenerierbar) ──
+chroma_db/
+
+# ── Umgebungsvariablen (enthält ggf. Secrets) ──
+.env
+
+# ── Hochgeladene Dokumente ──
+docs/*.pdf
+docs/*.PDF
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Logs ──
+*.log
+/tmp/
